@@ -59,27 +59,6 @@ class EmbeddingRequest(BaseModel):
     user: Optional[str] = Field(default=None, description="User identifier")
 
 
-class EmbeddingData(BaseModel):
-    """Single embedding object"""
-    object: str = "embedding"
-    embedding: List[float]
-    index: int
-
-
-class EmbeddingUsage(BaseModel):
-    """Token usage statistics"""
-    prompt_tokens: int
-    total_tokens: int
-
-
-class EmbeddingResponse(BaseModel):
-    """OpenAI-compatible embedding response"""
-    object: str = "list"
-    data: List[EmbeddingData]
-    model: str
-    usage: EmbeddingUsage
-
-
 class RerankRequest(BaseModel):
     """Reranking request"""
     query: str = Field(..., description="Search query")
@@ -91,21 +70,6 @@ class RerankRequest(BaseModel):
         populate_by_name = True
         # Allow both 'documents' and 'docs' as field names
         fields = {'documents': {'alias': 'docs'}}
-
-
-class RerankResult(BaseModel):
-    """Single reranking result"""
-    index: int
-    document: str
-    relevance_score: float
-
-
-class RerankResponse(BaseModel):
-    """Reranking response"""
-    results: List[RerankResult]
-    model: str
-    query: str
-    usage: Dict[str, int]
 
 
 # ============================================================================
@@ -199,10 +163,10 @@ def list_models():
     }
 
 
-@app.post("/v1/embeddings", response_model=EmbeddingResponse)
+@app.post("/v1/embeddings")
 async def create_embeddings(request: EmbeddingRequest):
     """
-    OpenAI-compatible embeddings endpoint
+    OpenAI-compatible embeddings endpoint - RAGFlow compatible
     
     Example:
         POST /v1/embeddings
@@ -231,33 +195,35 @@ async def create_embeddings(request: EmbeddingRequest):
         # Calculate usage
         total_tokens = sum(estimate_tokens(text) for text in texts)
         
-        # Build response
-        data = [
-            EmbeddingData(
-                embedding=emb.tolist(),
-                index=i
-            )
-            for i, emb in enumerate(embeddings)
-        ]
-        
-        response = EmbeddingResponse(
-            data=data,
-            model=request.model,
-            usage=EmbeddingUsage(
-                prompt_tokens=total_tokens,
-                total_tokens=total_tokens
-            )
-        )
+        # Build response as plain dict for maximum compatibility
+        response = {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": emb.tolist(),
+                    "index": i
+                }
+                for i, emb in enumerate(embeddings)
+            ],
+            "model": request.model,
+            "usage": {
+                "prompt_tokens": total_tokens,
+                "total_tokens": total_tokens
+            }
+        }
         
         print(f"✅ Embedded {len(texts)} texts in {processing_time:.2f}s")
         return response
         
     except Exception as e:
         print(f"❌ Embedding error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/v1/rerank", response_model=RerankResponse)
+@app.post("/v1/rerank")
 async def rerank_documents(request: RerankRequest):
     """
     Rerank documents based on query relevance
@@ -312,35 +278,35 @@ async def rerank_documents(request: RerankRequest):
         # Get top-k indices
         ranked_indices = np.argsort(similarities)[::-1][:top_k]
         
-        # Build results
-        results = [
-            RerankResult(
-                index=int(idx),
-                document=docs[idx],
-                relevance_score=float(similarities[idx])
-            )
-            for idx in ranked_indices
-        ]
-        
         # Calculate usage
         total_tokens = estimate_tokens(query) + sum(estimate_tokens(doc) for doc in docs)
         
-        response = RerankResponse(
-            results=results,
-            model=request.model or RERANKER_MODEL_NAME,
-            query=query,
-            usage={
+        # Return as plain dict
+        response = {
+            "results": [
+                {
+                    "index": int(idx),
+                    "document": docs[idx],
+                    "relevance_score": float(similarities[idx])
+                }
+                for idx in ranked_indices
+            ],
+            "model": request.model or RERANKER_MODEL_NAME,
+            "query": query,
+            "usage": {
                 "total_tokens": total_tokens,
                 "query_tokens": estimate_tokens(query),
                 "documents_tokens": sum(estimate_tokens(doc) for doc in docs)
             }
-        )
+        }
         
         print(f"✅ Reranked {len(docs)} docs in {processing_time:.2f}s")
         return response
         
     except Exception as e:
         print(f"❌ Reranking error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -357,9 +323,9 @@ async def legacy_embeddings(body: Dict[str, Any] = Body(...)):
     
     # Convert to legacy format
     return {
-        "data": [{"embedding": item.embedding, "index": item.index} for item in response.data],
-        "model": response.model,
-        "count": len(response.data)
+        "data": [{"embedding": item["embedding"], "index": item["index"]} for item in response["data"]],
+        "model": response["model"],
+        "count": len(response["data"])
     }
 
 
@@ -374,13 +340,13 @@ async def legacy_rerank(body: Dict[str, Any] = Body(...)):
     )
     response = await rerank_documents(request)
     
-    # Return in legacy format if needed
+    # Return in legacy format
     return {
         "results": [
-            {"index": r.index, "document": r.document, "relevance_score": r.relevance_score}
-            for r in response.results
+            {"index": r["index"], "document": r["document"], "relevance_score": r["relevance_score"]}
+            for r in response["results"]
         ],
-        "model": response.model
+        "model": response["model"]
     }
 
 
@@ -396,7 +362,7 @@ def main():
     print(f"📍 URL: http://0.0.0.0:8001")
     print(f"📚 Docs: http://0.0.0.0:8001/docs")
     print(f"🔧 Models: {EMBEDDING_MODEL_NAME}, {RERANKER_MODEL_NAME}")
-    print(f"🎯 OpenAI Compatible: Yes")
+
     print("="*60 + "\n")
     
     uvicorn.run(
