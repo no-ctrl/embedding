@@ -15,7 +15,7 @@ fi
 
 # Клонирај репо (замени го URL-то)
 REPO_URL="${1:-https://github.com/no-ctrl/embedding.git}"
-INSTALL_DIR="runpod-embedding-server"
+INSTALL_DIR="embedding"
 
 if [ -d "$INSTALL_DIR" ]; then
     echo "📁 Директориумот веќе постои. Бришам..."
