@@ -14,7 +14,7 @@ if ! command -v git &> /dev/null; then
 fi
 
 # Клонирај репо (замени го URL-то)
-REPO_URL="${1:-https://github.com/yourusername/runpod-embedding-server.git}"
+REPO_URL="${1:-https://github.com/no-ctrl/embedding.git}"
 INSTALL_DIR="runpod-embedding-server"
 
 if [ -d "$INSTALL_DIR" ]; then
