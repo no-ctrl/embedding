@@ -29,4 +29,5 @@ infinity_emb v2 \
   --host 0.0.0.0 \
   --port 8001 \
   --device cuda \
-  --dtype float32
+  --dtype float32 \
+  --url-prefix /v1
