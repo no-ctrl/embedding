@@ -60,9 +60,14 @@ else
     exit 1
 fi
 
-# Креирај systemd сервис за автоматско рестартирање
-echo -e "\n${YELLOW}Creating systemd service...${NC}"
-cat > /etc/systemd/system/embedding-server.service << 'EOF'
+# Креирај systemd сервис за автоматско рестартирање (само ако не е Docker)
+if [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+    echo -e "\n${YELLOW}⚠ Docker detected - skipping systemd setup${NC}"
+    echo -e "  Server is running with nohup and will persist in background"
+    echo -e "  To restart container with server: docker restart <container>"
+else
+    echo -e "\n${YELLOW}Creating systemd service...${NC}"
+    cat > /etc/systemd/system/embedding-server.service << 'EOF'
 [Unit]
 Description=Embedding Server (BAAI/bge-m3)
 After=network.target
@@ -81,11 +86,12 @@ StandardError=append:/root/embedding.log
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable embedding-server.service
+    systemctl daemon-reload
+    systemctl enable embedding-server.service
 
-echo -e "${GREEN}✓ Systemd service created and enabled!${NC}"
-echo -e "  Start: systemctl start embedding-server"
-echo -e "  Stop: systemctl stop embedding-server"
-echo -e "  Status: systemctl status embedding-server"
-echo -e "  Logs: journalctl -u embedding-server -f"
+    echo -e "${GREEN}✓ Systemd service created and enabled!${NC}"
+    echo -e "  Start: systemctl start embedding-server"
+    echo -e "  Stop: systemctl stop embedding-server"
+    echo -e "  Status: systemctl status embedding-server"
+    echo -e "  Logs: journalctl -u embedding-server -f"
+fi
