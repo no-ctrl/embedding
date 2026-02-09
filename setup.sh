@@ -114,21 +114,38 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Популарни модели за избор
-POPULAR_EMBEDDING_MODELS=(
-    "BAAI/bge-m3|Multilingual, best quality (1024 dim)"
-    "BAAI/bge-large-en-v1.5|English, large (1024 dim)"
-    "BAAI/bge-base-en-v1.5|English, base (768 dim)"
-    "BAAI/bge-small-en-v1.5|English, fast (384 dim)"
-    "sentence-transformers/all-MiniLM-L6-v2|Fast & light (384 dim)"
-    "intfloat/e5-large-v2|English, high quality (1024 dim)"
-    "intfloat/multilingual-e5-large|Multilingual (1024 dim)"
+declare -a EMBEDDING_MODELS=(
+    "BAAI/bge-m3"
+    "BAAI/bge-large-en-v1.5"
+    "BAAI/bge-base-en-v1.5"
+    "BAAI/bge-small-en-v1.5"
+    "sentence-transformers/all-MiniLM-L6-v2"
+    "intfloat/e5-large-v2"
+    "intfloat/multilingual-e5-large"
 )
 
-POPULAR_RERANKER_MODELS=(
-    "BAAI/bge-reranker-v2-m3|Multilingual, latest (default)"
-    "BAAI/bge-reranker-base|English, fast"
-    "BAAI/bge-reranker-large|English, best quality"
-    "cross-encoder/ms-marco-MiniLM-L-6-v2|Fast reranker"
+declare -a EMBEDDING_DESCRIPTIONS=(
+    "Multilingual, best quality (1024 dim)"
+    "English, large (1024 dim)"
+    "English, base (768 dim)"
+    "English, fast (384 dim)"
+    "Fast & light (384 dim)"
+    "English, high quality (1024 dim)"
+    "Multilingual (1024 dim)"
+)
+
+declare -a RERANKER_MODELS=(
+    "BAAI/bge-reranker-v2-m3"
+    "BAAI/bge-reranker-base"
+    "BAAI/bge-reranker-large"
+    "cross-encoder/ms-marco-MiniLM-L-6-v2"
+)
+
+declare -a RERANKER_DESCRIPTIONS=(
+    "Multilingual, latest (default)"
+    "English, fast"
+    "English, best quality"
+    "Fast reranker"
 )
 
 # Интерактивен мод
@@ -138,60 +155,98 @@ if [ "$INTERACTIVE" = true ]; then
     # Избери Embedding модел
     if [ "$SKIP_EMBEDDING" = false ]; then
         echo -e "${YELLOW}Select Embedding Model:${NC}"
-        for i in "${!POPULAR_EMBEDDING_MODELS[@]}"; do
-            IFS='|' read -r model desc <<< "${POPULAR_EMBEDDING_MODELS[$i]}"
-            echo "  $((i+1)). $model - $desc"
+        for i in "${!EMBEDDING_MODELS[@]}"; do
+            echo "  $((i+1)). ${EMBEDDING_MODELS[$i]} - ${EMBEDDING_DESCRIPTIONS[$i]}"
         done
-        echo "  $((${#POPULAR_EMBEDDING_MODELS[@]}+1)). Custom (enter manually)"
+        echo "  $((${#EMBEDDING_MODELS[@]}+1)). Custom (enter manually)"
         echo ""
-        read -p "Choice [1]: " emb_choice
-        emb_choice=${emb_choice:-1}
         
-        if [ "$emb_choice" -le "${#POPULAR_EMBEDDING_MODELS[@]}" ]; then
-            IFS='|' read -r EMBEDDING_MODEL desc <<< "${POPULAR_EMBEDDING_MODELS[$((emb_choice-1))]}"
-        else
-            read -p "Enter custom embedding model: " EMBEDDING_MODEL
-        fi
+        while true; do
+            read -p "Choice [1]: " emb_choice
+            emb_choice=${emb_choice:-1}
+            
+            # Провери дали е валиден број
+            if [[ "$emb_choice" =~ ^[0-9]+$ ]]; then
+                if [ "$emb_choice" -ge 1 ] && [ "$emb_choice" -le "${#EMBEDDING_MODELS[@]}" ]; then
+                    EMBEDDING_MODEL="${EMBEDDING_MODELS[$((emb_choice-1))]}"
+                    break
+                elif [ "$emb_choice" -eq "$((${#EMBEDDING_MODELS[@]}+1))" ]; then
+                    read -p "Enter custom embedding model: " EMBEDDING_MODEL
+                    break
+                else
+                    echo -e "${RED}Invalid choice. Please select 1-$((${#EMBEDDING_MODELS[@]}+1))${NC}"
+                fi
+            else
+                echo -e "${RED}Please enter a number${NC}"
+            fi
+        done
         echo ""
     fi
     
     # Избери Reranker модел
     if [ "$SKIP_RERANKER" = false ]; then
         echo -e "${YELLOW}Select Reranker Model:${NC}"
-        for i in "${!POPULAR_RERANKER_MODELS[@]}"; do
-            IFS='|' read -r model desc <<< "${POPULAR_RERANKER_MODELS[$i]}"
-            echo "  $((i+1)). $model - $desc"
+        for i in "${!RERANKER_MODELS[@]}"; do
+            echo "  $((i+1)). ${RERANKER_MODELS[$i]} - ${RERANKER_DESCRIPTIONS[$i]}"
         done
-        echo "  $((${#POPULAR_RERANKER_MODELS[@]}+1)). Custom (enter manually)"
+        echo "  $((${#RERANKER_MODELS[@]}+1)). Custom (enter manually)"
         echo ""
-        read -p "Choice [1]: " rerank_choice
-        rerank_choice=${rerank_choice:-1}
         
-        if [ "$rerank_choice" -le "${#POPULAR_RERANKER_MODELS[@]}" ]; then
-            IFS='|' read -r RERANKER_MODEL desc <<< "${POPULAR_RERANKER_MODELS[$((rerank_choice-1))]}"
-        else
-            read -p "Enter custom reranker model: " RERANKER_MODEL
-        fi
+        while true; do
+            read -p "Choice [1]: " rerank_choice
+            rerank_choice=${rerank_choice:-1}
+            
+            if [[ "$rerank_choice" =~ ^[0-9]+$ ]]; then
+                if [ "$rerank_choice" -ge 1 ] && [ "$rerank_choice" -le "${#RERANKER_MODELS[@]}" ]; then
+                    RERANKER_MODEL="${RERANKER_MODELS[$((rerank_choice-1))]}"
+                    break
+                elif [ "$rerank_choice" -eq "$((${#RERANKER_MODELS[@]}+1))" ]; then
+                    read -p "Enter custom reranker model: " RERANKER_MODEL
+                    break
+                else
+                    echo -e "${RED}Invalid choice. Please select 1-$((${#RERANKER_MODELS[@]}+1))${NC}"
+                fi
+            else
+                echo -e "${RED}Please enter a number${NC}"
+            fi
+        done
         echo ""
     fi
     
     # Порти
-    read -p "Embedding port [$EMBEDDING_PORT]: " port_input
-    EMBEDDING_PORT=${port_input:-$EMBEDDING_PORT}
+    read -p "Embedding port [$EMBEDDING_PORT]: " emb_port_input
+    if [ -n "$emb_port_input" ]; then
+        EMBEDDING_PORT="$emb_port_input"
+    fi
     
-    read -p "Reranker port [$RERANKER_PORT]: " port_input
-    RERANKER_PORT=${port_input:-$RERANKER_PORT}
+    read -p "Reranker port [$RERANKER_PORT]: " rerank_port_input
+    if [ -n "$rerank_port_input" ]; then
+        RERANKER_PORT="$rerank_port_input"
+    fi
     
     # Device
-    read -p "Device (cuda/cpu) [$DEVICE]: " device_input
-    DEVICE=${device_input:-$DEVICE}
+    while true; do
+        read -p "Device (cuda/cpu) [$DEVICE]: " device_input
+        device_input=${device_input:-$DEVICE}
+        if [[ "$device_input" == "cuda" ]] || [[ "$device_input" == "cpu" ]]; then
+            DEVICE="$device_input"
+            break
+        else
+            echo -e "${RED}Please enter 'cuda' or 'cpu'${NC}"
+        fi
+    done
     
     echo ""
 fi
 
 # Постави default вредности ако не се зададени
-EMBEDDING_MODEL=${EMBEDDING_MODEL:-$DEFAULT_EMBEDDING_MODEL}
-RERANKER_MODEL=${RERANKER_MODEL:-$DEFAULT_RERANKER_MODEL}
+if [ -z "$EMBEDDING_MODEL" ]; then
+    EMBEDDING_MODEL="$DEFAULT_EMBEDDING_MODEL"
+fi
+
+if [ -z "$RERANKER_MODEL" ]; then
+    RERANKER_MODEL="$DEFAULT_RERANKER_MODEL"
+fi
 
 # Прикажи конфигурација
 echo -e "${BLUE}═══ Configuration ═══${NC}"
@@ -223,8 +278,8 @@ fi
 
 # Системска подготовка
 echo -e "${YELLOW}[1/3] System Update & Dependencies...${NC}"
-apt-get update -qq > /dev/null
-apt-get install -y -qq python3.10 python3.10-venv python3.10-distutils curl coreutils procps > /dev/null
+apt-get update -qq > /dev/null 2>&1
+apt-get install -y -qq python3.10 python3.10-venv python3.10-distutils curl coreutils procps > /dev/null 2>&1
 
 # Python околина
 echo -e "${YELLOW}[2/3] Setting up Python Environment...${NC}"
@@ -303,7 +358,7 @@ fi
 
 # Зачувај конфигурацијата
 cat > /root/server_config.env << EOF
-# Server Configuration
+# Server Configuration - Generated $(date)
 EMBEDDING_MODEL="$EMBEDDING_MODEL"
 RERANKER_MODEL="$RERANKER_MODEL"
 EMBEDDING_PORT="$EMBEDDING_PORT"
